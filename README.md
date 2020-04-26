@@ -2,7 +2,7 @@
 
 > An opinionated async/await wrapper to AWS dynamo client (document)
 
-# API
+## API
 
 First, you have to create a client:
 
@@ -15,21 +15,14 @@ import { createClient } from '@fabienjuif/dynamo-client'
 const dynamoClient = createClient()
 ```
 
-    collection: (tableName) => ({
-      delete: deleteDocument(tableName),
-      get: get(tableName),
-      put: put(tableName),
-      update: update(tableName),
-    }),
-
-## delete
+### delete
 
 ```js
 // delete(keyValue, { key: 'id' })
 await dynamoClient.collection('my-collection').delete('my-id')
 ```
 
-## get
+### get
 
 ```js
 // get(keyValue, projectionKeys = undefined, { key = 'id' })
@@ -37,7 +30,7 @@ await dynamoClient.collection('my-collection').get('my-id')
 await dynamoClient.collection('my-collection').get('my-id', ['id', 'name'])
 ```
 
-## put
+### put
 
 ```js
 await dynamoClient.collection('my-collection').put({
@@ -46,7 +39,7 @@ await dynamoClient.collection('my-collection').put({
 })
 ```
 
-## update
+### update
 
 ```js
 // update(data, { key = 'id' })
