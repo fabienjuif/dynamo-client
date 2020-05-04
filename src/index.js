@@ -139,6 +139,7 @@ export const createClient = (
     }
 
   return {
+    docClient,
     collection: (tableName) => ({
       delete: deleteDocument(tableName),
       get: get(tableName),
