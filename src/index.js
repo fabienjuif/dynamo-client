@@ -7,14 +7,13 @@ export const createClient = (
   AWS.config.update({ region })
   const docClient = new AWS.DynamoDB.DocumentClient({ apiVersion })
 
-  const query = (tableName) =>
+  const query = (tableName, key = 'id') =>
     /**
      * Query items trough there ID.
      *
      * @param {String|Object} keyValue the key value that identify the document to retrieve.
-     * @param {String} options.key key name. Default is `id`.
      */
-    async (keyValue, { key = 'id' } = { key: 'id' }) => {
+    async (keyValue) => {
       const keys = [].concat(key)
 
       const params = {
