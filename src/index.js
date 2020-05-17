@@ -7,16 +7,84 @@ export const createClient = (
   AWS.config.update({ region })
   const docClient = new AWS.DynamoDB.DocumentClient({ apiVersion })
 
-  const update = (tableName) =>
+  const query = (tableName, key = 'id') =>
+    /**
+     * Query items trough there ID.
+     *
+     * @param {String|Object} keyValue the key value that identify the document to retrieve.
+     */
+    async (keyValue) => {
+      const keys = typeof keyValue === 'string' ? [key] : Object.keys(keyValue)
+
+      const params = {
+        TableName: tableName,
+        KeyConditionExpression: keys.map((k) => `#${k} = :${k}`).join(' and '),
+        ExpressionAttributeNames: keys.reduce(
+          (acc, k) => ({ ...acc, [`#${k}`]: k }),
+          {},
+        ),
+        ExpressionAttributeValues: keys.reduce(
+          (acc, k) => ({
+            ...acc,
+            [`:${k}`]: keyValue[k],
+          }),
+          {},
+        ),
+      }
+
+      const { Items } = await docClient.query(params).promise()
+
+      return Items
+    }
+
+  const get = (tableName, key = 'id') =>
+    /**
+     * Read a document.
+     *
+     * @param {String|Object} keyValue the key value that identify the document to retrieve.
+     * @param {String} options.key key name. Default is `id`.
+     */
+    async (keyValue, projectionKeys = undefined) => {
+      let params = {
+        TableName: tableName,
+        Key:
+          typeof keyValue === 'string'
+            ? {
+                [key]: keyValue,
+              }
+            : keyValue,
+      }
+
+      if (projectionKeys) {
+        const innerProjectionKeys = [].concat(projectionKeys)
+
+        params = {
+          ...params,
+          ExpressionAttributeNames: innerProjectionKeys.reduce(
+            (acc, k) => ({ ...acc, [`#${k}`]: k }),
+            {},
+          ),
+          ProjectionExpression: innerProjectionKeys
+            .map((k) => `#${k}`)
+            .join(','),
+        }
+      }
+
+      const { Item } = await docClient.get(params).promise()
+      return Item
+    }
+
+  const update = (tableName, key = 'id') =>
     /**
      * Update one document.
      *
      * @param {Object} data data you want to update (all fields will be updated!).
      *                      You can set data value to `undefined` to remove it.
-     * @param {String} options.key the key to use as an ID, this key will not be updated. Default is `id`
      */
-    async (data, { key = 'id' } = { key: 'id' }) => {
-      const keys = Object.keys(data).filter((curr) => curr !== key)
+    async (data) => {
+      const keys = Object.keys(data).filter(
+        (curr) => ![].concat(key).includes(curr),
+      )
       const updateKeys = []
       const updates = []
       const removes = []
@@ -32,9 +100,12 @@ export const createClient = (
 
       let params = {
         TableName: tableName,
-        Key: {
-          [key]: data[key],
-        },
+        Key:
+          typeof key === 'string'
+            ? {
+                [key]: data[key],
+              }
+            : key.reduce((acc, curr) => ({ ...acc, [curr]: data[curr] }), {}),
         ExpressionAttributeNames: keys.reduce(
           (acc, k) => ({ ...acc, [`#${k}`]: k }),
           {},
@@ -82,69 +153,41 @@ export const createClient = (
         })
         .promise()
 
-  const deleteDocument = (tableName) =>
+  const deleteDocument = (tableName, key = 'id') =>
     /**
      * Remove a document given its key value.
      *
      * @param {String} keyValue key value to the document to remove
-     * @param {String} options.key key name. Default is `id`.
      */
-    (keyValue, { key = 'id' } = { key: 'id' }) =>
+    (keyValue) =>
       docClient
         .delete({
           TableName: tableName,
-          Key: {
-            [key]: keyValue,
-          },
+          Key:
+            typeof key === 'string'
+              ? {
+                  [key]: keyValue,
+                }
+              : keyValue,
         })
         .promise()
 
-  const get = (tableName) =>
-    /**
-     * Read a document.
-     *
-     * @param {String} keyValue the key value that identify the document to retrieve.
-     * @param {Array<String>|String} projectionKeys the projection to apply
-     * @param {String} options.key key name. Default is `id`.
-     */
-    async (
-      keyValue,
-      projectionKeys = undefined,
-      { key = 'id' } = { key: 'id' },
-    ) => {
-      let params = {
-        TableName: tableName,
-        Key: {
-          [key]: keyValue,
-        },
-      }
-
-      if (projectionKeys) {
-        const innerProjectionKeys = [].concat(projectionKeys)
-
-        params = {
-          ...params,
-          ExpressionAttributeNames: innerProjectionKeys.reduce(
-            (acc, k) => ({ ...acc, [`#${k}`]: k }),
-            {},
-          ),
-          ProjectionExpression: innerProjectionKeys
-            .map((k) => `#${k}`)
-            .join(','),
-        }
-      }
-
-      const { Item } = await docClient.get(params).promise()
-      return Item
-    }
-
   return {
     docClient,
-    collection: (tableName) => ({
-      delete: deleteDocument(tableName),
-      get: get(tableName),
-      put: put(tableName),
-      update: update(tableName),
+    /**
+     * Get a collection (table) helper.
+     *
+     * @param tableName the table name.
+     * @param key the primary key of this table
+     *            it can be a single string or an array of strings
+     *            (if you use a partition and a sort key).
+     */
+    collection: (tableName, key = 'id') => ({
+      delete: deleteDocument(tableName, key),
+      get: get(tableName, key),
+      query: query(tableName, key),
+      put: put(tableName, key),
+      update: update(tableName, key),
     }),
   }
 }
