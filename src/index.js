@@ -14,7 +14,7 @@ export const createClient = (
      * @param {String|Object} keyValue the key value that identify the document to retrieve.
      */
     async (keyValue) => {
-      const keys = [].concat(key)
+      const keys = typeof keyValue === 'string' ? [key] : Object.keys(keyValue)
 
       const params = {
         TableName: tableName,
@@ -23,18 +23,13 @@ export const createClient = (
           (acc, k) => ({ ...acc, [`#${k}`]: k }),
           {},
         ),
-        ExpressionAttributeValues:
-          typeof keyValue === 'object'
-            ? keys.reduce(
-                (acc, k) => ({
-                  ...acc,
-                  [`:${k}`]: keyValue[k],
-                }),
-                {},
-              )
-            : {
-                [`:${key}`]: keyValue,
-              },
+        ExpressionAttributeValues: keys.reduce(
+          (acc, k) => ({
+            ...acc,
+            [`:${k}`]: keyValue[k],
+          }),
+          {},
+        ),
       }
 
       const { Items } = await docClient.query(params).promise()
